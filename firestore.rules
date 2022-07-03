@@ -4,5 +4,16 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+    match /users/{userId}/devices/{token} {
+    	allow read, write: if request.auth.uid == userId && userIsAllowed();
+    }
+    function userIsAllowed() {
+			let userHasEmail = request.auth.token.email_verified && request.auth.token.email != null;
+			let userEmail = request.auth.token.email_verified && request.auth.token.email || "";
+  		let emailAllowed = exists(/databases/$(database)/documents/allowedEmails/$(request.auth.token.email));
+  		return userHasEmail && emailAllowed;
+		}
+
   }
 }
+
