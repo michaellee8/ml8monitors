@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 import { getMessaging } from "firebase/messaging";
+import { getAuth } from "firebase/auth";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -23,6 +24,7 @@ export const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
 export const db = getFirestore(app);
 export const messaging = getMessaging(app);
+export const auth = getAuth(app);
 
 export const vapidKey =
   "BItWJIcjiiwLxSRz7Yv0AFH-Ioyfss0MYm1wYcPEHL7K4l4sEoLiNTk0aRWa_o2rf_P88qZg8mqeEVKTax1TzyU";
