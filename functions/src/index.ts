@@ -33,6 +33,9 @@ export const monitorTwfanti = functions.pubsub
       }
       if (savedChapterNumber === latestChapterNumber) {
         // state is not changed, nothing to do
+        console.info(
+          `no chapter change detected, current chapter is ${savedChapterNumber}`,
+        );
         return;
       }
       // state changed, send notifications and update db
