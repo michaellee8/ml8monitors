@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "229828936184",
+    "project_id": "ml8monitors",
+    "storage_bucket": "ml8monitors.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:229828936184:android:9840f2f266a53496d8160d",
+        "android_client_info": {
+          "package_name": "com.michaellee8.ml8monitors"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "229828936184-o8quupomdfjd9u3pv99erg3h8dd5md5c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvzkifKtqEPT_Adp2rOAhOosLxVW4yE2U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "229828936184-o8quupomdfjd9u3pv99erg3h8dd5md5c.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "229828936184-pghafpv8ksb4ak13pu8voojspfv9sj6l.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.michaellee8.ml8monitors"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
