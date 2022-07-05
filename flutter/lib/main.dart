@@ -1,6 +1,22 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io' show Platform;
 
-void main() {
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -24,7 +40,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'ml8monitors Home Page'),
+      home: const MyHomePage(title: 'ml8monitors'),
     );
   }
 }
@@ -48,17 +64,147 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  User? user;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  StreamSubscription<User?>? authStateSubscription;
+
+  StreamSubscription? messagingSubscription;
+
+  @override
+  void initState() {
+    initSubscriptions();
+
+    super.initState();
+  }
+
+  void initSubscriptions() {
+    authStateSubscription =
+        FirebaseAuth.instance.authStateChanges().listen((event) {
+      setState(() {
+        user = event;
+      });
     });
+
+    if (Platform.isAndroid) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'high_importance_channel', // id
+        'High Importance Notifications', // title
+        importance: Importance.max,
+        description: 'This channel is used for important notifications.',
+      );
+
+      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+          FlutterLocalNotificationsPlugin();
+      messagingSubscription =
+          FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        RemoteNotification? notification = message.notification;
+        AndroidNotification? android = message.notification?.android;
+
+        // If `onMessage` is triggered with a notification, construct our own
+        // local notification to show to users using the created channel.
+        if (notification != null) {
+          flutterLocalNotificationsPlugin.show(
+              notification.hashCode,
+              notification.title,
+              notification.body,
+              NotificationDetails(
+                android: AndroidNotificationDetails(
+                  channel.id,
+                  channel.name,
+                  icon: android?.smallIcon,
+                  // other properties...
+                ),
+              ));
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    authStateSubscription?.cancel();
+    messagingSubscription?.cancel();
+    super.dispose();
+  }
+
+  void signInWithGoogle() async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      final googleAuth = await googleUser?.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth?.accessToken,
+        idToken: googleAuth?.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Login success")));
+    } catch (err) {
+      debugPrint(err.toString());
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Login failed")));
+    }
+  }
+
+  void signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Logout success")));
+    } catch (err) {
+      debugPrint(err.toString());
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Logout failed")));
+    }
+  }
+
+  void subscribeNotification() async {
+    try {
+      if (Platform.isAndroid) {
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'high_importance_channel', // id
+          'High Importance Notifications', // title
+          importance: Importance.max,
+          description: 'This channel is used for important notifications.',
+        );
+        final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+            FlutterLocalNotificationsPlugin();
+
+        await flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(channel);
+      } else if (Platform.isIOS) {
+        await FirebaseMessaging.instance
+            .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+      final deviceInfoPlugin = DeviceInfoPlugin();
+      final deviceInfo = await deviceInfoPlugin.deviceInfo;
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      final db = FirebaseFirestore.instance;
+      await db
+          .collection('users/${user?.uid}/devices')
+          .doc(fcmToken)
+          .set(deviceInfo.toMap());
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Subscribe notification success")));
+    } catch (err) {
+      debugPrint(err.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Subscribe notification failed")));
+    }
   }
 
   @override
@@ -70,46 +216,37 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+        appBar: AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: Text(widget.title),
+          actions: [
+            TextButton(
+              onPressed: user == null ? signInWithGoogle : signOut,
+              child: Text(
+                user == null ? "Login" : "Logout",
+                style: Theme.of(context).textTheme.button?.apply(
+                      color:
+                          // Theme.of(context).appBarTheme.iconTheme?.color,
+                          Colors.white,
+                    ),
+              ),
+            )
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+        body: ListView(
+          children: [
+            ListTile(
+              title: const Text("Auth status"),
+              subtitle: Text(user?.email ?? "Not logged in"),
+            ),
+            if (user != null)
+              ListTile(
+                title: const Text("Subscribe notification"),
+                onTap: subscribeNotification,
+              )
+          ],
+        ) // This trailing comma makes auto-formatting nicer for build methods.
+        );
   }
 }
